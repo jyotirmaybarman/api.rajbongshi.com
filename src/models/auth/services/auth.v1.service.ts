@@ -55,11 +55,11 @@ export class AuthV1Service {
     if (user) throw new BadRequestException('email address already in use');
 
     const count = await this.usersService.getCount({});
-    let role:Role = Role.user;
+    let role: Role = Role.user;
     let status: Status = null;
-    if(count == 0){
+    if (count == 0) {
       role = Role.admin;
-      status = Status.active
+      status = Status.active;
     }
 
     // generate verification token
@@ -94,7 +94,7 @@ export class AuthV1Service {
         subject: 'Verify your email address',
         context: {
           link: this.generateVerificationLink(verification_token),
-          contact_email: 'contact@developerzilla.com',
+          contact_email: 'contact@rajbongshi.com',
         },
       },
     });
@@ -118,9 +118,10 @@ export class AuthV1Service {
         email: true,
       },
     });
-    if (!user) return {
-        message: 'a verification link will be sent to your email'
-      }
+    if (!user)
+      return {
+        message: 'a verification link will be sent to your email',
+      };
 
     const new_verification_token = this.jwt.sign(
       { email: user.email },
@@ -149,7 +150,7 @@ export class AuthV1Service {
         subject: 'Verify your email address',
         context: {
           link: this.generateVerificationLink(new_verification_token),
-          contact_email: 'contact@developerzilla.com',
+          contact_email: 'contact@rajbongshi.com',
         },
       },
     });
@@ -318,7 +319,7 @@ export class AuthV1Service {
         template: 'reset-password',
         context: {
           link: reset_link,
-          contact_email: 'contact@developerzilla.com',
+          contact_email: 'contact@rajbongshi.com',
         },
       },
     });
@@ -392,7 +393,7 @@ export class AuthV1Service {
             link: `${this.configService.get(
               'FRONTEND_URL',
             )}/verify-email?token=${verification_token}`,
-            contact_email: 'contact@developerzilla.com',
+            contact_email: 'contact@rajbongshi.com',
           },
         },
       });
@@ -456,7 +457,7 @@ export class AuthV1Service {
         avatar: `https://avatars.dicebear.com/api/bottts/${data.first_name[0].toLowerCase()}${data.last_name[0].toLowerCase()}.svg`,
         role: data.role,
         verified: data.verified,
-        status: data.status
+        status: data.status,
       },
     });
 
@@ -477,33 +478,35 @@ export class AuthV1Service {
     };
   }
 
-  async getAllUsers(query: GetUsersQueryDto): Promise<ServiceResponseType<User>> {
+  async getAllUsers(
+    query: GetUsersQueryDto,
+  ): Promise<ServiceResponseType<User>> {
     let pagination = getPagination(query);
 
-    const mode = "insensitive";   
+    const mode = 'insensitive';
 
     const filter: Prisma.UserWhereInput = {
       ...(query.role && { role: query.role }),
       ...(query.status && { status: query.status }),
       ...(query.verified && { verified: query.verified == 'true' }),
       ...(query.search && {
-        OR:[
+        OR: [
           { first_name: { contains: query.search, mode } },
           { last_name: { contains: query.search, mode } },
           { email: { contains: query.search, mode } },
-        ]
-      })
-    }
+        ],
+      }),
+    };
 
     let users = await this.usersService.findAll({
       where: filter,
       take: pagination.take,
       skip: pagination.skip,
-      orderBy:{
-        created_at: query.sort
-      }
+      orderBy: {
+        created_at: query.sort,
+      },
     });
-    
+
     const count = await this.usersService.getCount({ where: filter });
 
     return {
@@ -534,32 +537,39 @@ export class AuthV1Service {
     admin_user: JwtPayload,
     avatar?: Express.Multer.File,
   ): Promise<ServiceResponseType<User>> {
-
-    data = instanceToPlain(data)
+    data = instanceToPlain(data);
 
     let user = await this.usersService.findOneOrFail({
       where: { id },
-    });  
+    });
 
-    if(user.id == admin_user.sub && (data.role != user.role || data.status != user.status || data.verified != user.verified)){
+    if (
+      user.id == admin_user.sub &&
+      (data.role != user.role ||
+        data.status != user.status ||
+        data.verified != user.verified)
+    ) {
       throw new ForbiddenException("you can't downgrade your own account");
     }
-    
-    if(data.email && user.email != data.email){
+
+    if (data.email && user.email != data.email) {
       let existing = await this.usersService.findOne({
         where: {
-          email: data.email
-        }
+          email: data.email,
+        },
       });
-  
-      if(existing) throw new BadRequestException('email address already exists');
+
+      if (existing)
+        throw new BadRequestException('email address already exists');
     }
 
     user = await this.usersService.updateOne({
       where: { id },
       data: {
         ...data,
-        ...(data.password && { password: await bcrypt.hash(data.password, 13) }),
+        ...(data.password && {
+          password: await bcrypt.hash(data.password, 13),
+        }),
       },
     });
 
@@ -574,7 +584,7 @@ export class AuthV1Service {
       });
     }
 
-    if(data.verified != user.verified){
+    if (data.verified != user.verified) {
       await this.redis.get(`refresh:${user.id}`);
       await this.redis.get(`access:${user.id}`);
     }
@@ -585,12 +595,15 @@ export class AuthV1Service {
     };
   }
 
-  async deleteOneUserById(id: string, admin_user: JwtPayload): Promise<ServiceResponseType<User>> {
+  async deleteOneUserById(
+    id: string,
+    admin_user: JwtPayload,
+  ): Promise<ServiceResponseType<User>> {
     const user = await this.usersService.findOneOrFail({
       where: { id },
     });
 
-    if(user.id == admin_user.sub){
+    if (user.id == admin_user.sub) {
       throw new ForbiddenException("you can't delete your own account");
     }
 
@@ -598,15 +611,15 @@ export class AuthV1Service {
       where: { id },
     });
 
-    if(user.avatar_id){
+    if (user.avatar_id) {
       this.queueService.addJob<DeleteProfilePictureJobDto>({
         task: 'deleteProfilePicture',
         data: {
-          file_id: user.avatar_id
+          file_id: user.avatar_id,
         },
       });
     }
-    
+
     return {
       data: user,
       message: 'user deleted successfully',
