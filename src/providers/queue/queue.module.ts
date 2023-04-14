@@ -20,6 +20,8 @@ import { BlogsV1Service } from '../../models/blogs/services/blogs.v1.service';
         redis: {
           host: configService.get('REDIS_HOST'),
           port: configService.get('REDIS_PORT'),
+          username: configService.get('REDIS_USERNAME'),
+          password: configService.get('REDIS_PASSWORD'),
         },
       }),
     }),
